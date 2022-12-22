@@ -10,6 +10,7 @@ import sys
 import uuid
 from ctypes import *
 import argparse
+import zlib
 
 #### matches commit f06dde of objects.h
 
@@ -148,7 +149,7 @@ def decode_super(obj, fp):
     
     if sh.ckpts_len > 0:
         _ckpts = obj[sh.ckpts_offset:sh.ckpts_offset+sh.ckpts_len]
-        ckpts = (ctypes.c_int * (len(_ckpts)//4)).from_buffer(bytearray(_ckpts))
+        ckpts = (c_int * (len(_ckpts)//4)).from_buffer(bytearray(_ckpts))
         for c in ckpts:
             print('ckpt', c, file=fp)
     if sh.clones_len > 0:
@@ -195,7 +196,7 @@ def decode_ckpt(obj, fp):
         for m in _map:
             print('map %d,%d,%d,%d' % (m.lba, m.len, m.obj, m.offset))
     
-def write_ckpt(f, name):
+def encode_ckpt(f, name):
     h = hdr(magic = LSVD_MAGIC, version=1, type=LSVD_CKPT,
                      seq=int(f['seq']), hdr_sectors=0, data_sectors=0)
     h.vol_uuid[:] = uuid.UUID(f['uuid']).bytes
@@ -256,13 +257,14 @@ def write_ckpt(f, name):
     write_obj(name, buf)
 
 
-def write_super(f, name):
+def encode_super(f, name):
+    print('writing super')
     h = hdr(magic = LSVD_MAGIC, version=1, type=LSVD_SUPER,
                      seq=0, hdr_sectors=8, data_sectors=0)
-    h.vol_uuid[:] = uuid.UUID(f['uuid']).bytes
+    h.vol_uuid[:] = uuid.UUID(f['uuid'][0]).bytes
 
     sh = super_hdr()
-    sh.vol_size = int(f['vol_size'])
+    sh.vol_size = int(f['vol_size'][0])
     ckpts = b''
     if 'ckpt' in f:
         ckpt_list = f['ckpt']
@@ -272,7 +274,7 @@ def write_super(f, name):
         ckpts = bytearray() + c
     clone = b''
     if 'clone' in f:
-        name,uu,seq = f['clone'].split()
+        name,uu,seq = f['clone'][0].split()
         cl = clone_info(last_seq = int(seq))
         cl.vol_uuid[:] = uuid.UUID(uu).bytes
         cl.name_len = int(len(name))
@@ -285,8 +287,8 @@ def write_super(f, name):
     offset += len(ckpts)
 
     sh.clones_offset = offset
-    sh.clone_len = len(clones)
-    offset += len(clones)
+    sh.clone_len = len(clone)
+    offset += len(clone)
 
     buf = bytearray() + h + sh + ckpts + clone
     buf += b'\0' * (4096 - len(buf))
@@ -309,10 +311,12 @@ if args.encode:
             fields[tmp[0]].extend(tmp[1:])
         else:
             fields[tmp[0]] = tmp[1:]
-    if fields['type'] == 'SUPER':
+    if fields['type'][0] == 'SUPER':
         encode_super(fields, args.dst)
-    elif fields['type'] == 'CKPT':
+    elif fields['type'][0] == 'CKPT':
         encode_ckpt(fields, args.dst)
+    else:
+        print('type:', fields['type'])
 
 elif args.decode:
     obj = read_obj(args.src)
