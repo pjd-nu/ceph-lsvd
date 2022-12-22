@@ -68,9 +68,9 @@ backend *get_backend(lsvd_config *cfg, rados_ioctx_t io, const char *name) {
 	return make_rados_backend(io);
     return NULL;
 }
-    
+
 int rbd_image::image_open(rados_ioctx_t io, const char *name) {
-    
+
     if (cfg.read() < 0)
 	return -1;
     objstore = get_backend(&cfg, io, name);
@@ -96,7 +96,7 @@ int rbd_image::image_open(rados_ioctx_t io, const char *name) {
     fd = open(cache.c_str(), O_RDWR | O_DIRECT);
     if (fd < 0)
 	return -1;
-    
+
     j_super *js =  (j_super*)aligned_alloc(512, 4096);
     if (pread(fd, (char*)js, 4096, 0) < 0)
 	return -1;
@@ -104,7 +104,7 @@ int rbd_image::image_open(rados_ioctx_t io, const char *name) {
 	return -1;
     if (memcmp(js->vol_uuid, xlate->uuid, sizeof(uuid_t)) != 0)
 	throw("object and cache UUIDs don't match");
-    
+
     wcache = make_write_cache(js->write_super, fd, xlate, &cfg);
     rcache = make_read_cache(js->read_super, fd, false,
 			     xlate, &map, &map_lock, objstore);
@@ -112,7 +112,7 @@ int rbd_image::image_open(rados_ioctx_t io, const char *name) {
 
     if (!__lsvd_dbg_no_gc)
 	xlate->start_gc();
-    
+
     return 0;
 }
 
@@ -193,7 +193,7 @@ public:
      */
     std::atomic<int> done_released = 0;
     request *req;
-    
+
     lsvd_completion(rbd_callback_t cb_, void *arg_) : cb(cb_), arg(arg_) {}
 
     /* see Ceph AioCompletion::complete
@@ -215,7 +215,7 @@ public:
 
     void release() {
 	int x = (done_released += 10);
-	if (x == 11) 
+	if (x == 11)
 	    delete this;
     }
 };
@@ -340,7 +340,7 @@ class rbd_aio_req : public request {
     smartiov          aligned_iovs;
     sector_t          sectors = 0;
     std::vector<smartiov*> to_free;
-    
+
     std::atomic<int>  n_req = 0;
     std::atomic<int>  status = 0;
     std::mutex        m;
@@ -349,15 +349,15 @@ class rbd_aio_req : public request {
 
     std::set<void*> wc_work;
     std::set<request*> rc_work;
-    
+
     void notify_parent(void) {
 	//assert(!m.try_lock());
-        if (p != NULL) 
+        if (p != NULL)
             p->complete(sectors*512L);
 	if (status & REQ_WAIT)
 	    cv.notify_all();
     }
-    
+
     void notify_w(request *req) {
 	std::unique_lock lk(m);
 	wc_work.erase((void*)req);
@@ -371,7 +371,7 @@ class rbd_aio_req : public request {
 	if (x & REQ_LAUNCHED) {
 	    lk.unlock();
 	    notify_parent();
-	    if (! (x & REQ_WAIT)) 
+	    if (! (x & REQ_WAIT))
 		delete this;
 	}
     }
@@ -409,7 +409,7 @@ class rbd_aio_req : public request {
 	    delete this;
 	}
     }
-    
+
     void notify_r(request *child) {
 	if (child)
 	    child->release();
@@ -427,7 +427,7 @@ class rbd_aio_req : public request {
 	if (x & REQ_LAUNCHED) {
 	    lk.unlock();
 	    notify_parent();
-	    if (! (x & REQ_WAIT)) 
+	    if (! (x & REQ_WAIT))
 		delete this;
 	}
     }
@@ -507,7 +507,7 @@ class rbd_aio_req : public request {
 	    aligned_iovs.ingest(&iov, 1);
 	}
     }
-    
+
 public:
     rbd_aio_req(lsvd_op op_, rbd_image *img_,
 		lsvd_completion *p_, uint64_t offset_, int status_,
@@ -627,7 +627,7 @@ extern "C" int rbd_read(rbd_image_t image, uint64_t off, size_t len, char *buf)
     //do_log("rbd_read %d\n", (int)(off / 512));
     rbd_image *img = (rbd_image*)image;
     auto req = new rbd_aio_req(OP_READ, img, NULL, off, REQ_WAIT, buf, len);
-    
+
     req->run(NULL);
     req->wait();
     return 0;
@@ -738,6 +738,7 @@ extern "C" int rbd_aio_writesame(rbd_image_t image, uint64_t off,
     while (len > 0) {
 	size_t bytes = std::min(len, data_len);
 	iov[niovs++] = (iovec){(void*)buf, bytes};
+	len -= bytes;
     }
     return rbd_aio_writev(image, iov, niovs, off, c);
 }
@@ -785,3 +786,143 @@ extern "C" int rbd_snap_rollback(rbd_image_t image, const char *snapname)
     return -1;
 }
 
+/* */
+extern "C" int rbd_diff_iterate2(rbd_image_t image, const char *fromsnapname,
+				 uint64_t ofs, uint64_t len,
+				 uint8_t include_parent, uint8_t whole_object,
+				 int (*cb)(uint64_t, size_t, int, void *),
+				 void *arg)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_encryption_format(rbd_image_t image,
+				     rbd_encryption_format_t format,
+				     rbd_encryption_options_t opts,
+				     size_t opts_size)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_encryption_load(rbd_image_t image,
+				   rbd_encryption_format_t format,
+				   rbd_encryption_options_t opts,
+				   size_t opts_size)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_get_features(rbd_image_t image, uint64_t *features)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_get_flags(rbd_image_t image, uint64_t *flags)
+{
+    return *(int*)0;
+}
+
+static int _tmp;
+#define ASSERT_FAIL() _tmp += *(int*)0
+
+extern "C" void rbd_image_spec_cleanup(rbd_image_spec_t *image)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" void rbd_linked_image_spec_cleanup(rbd_linked_image_spec_t *image)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" int rbd_mirror_image_enable(rbd_image_t image)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_mirror_image_enable2(rbd_image_t image,
+                                          rbd_mirror_image_mode_t mode)
+{
+    return *(int*)0;
+}
+
+extern "C" void rbd_mirror_image_get_info_cleanup(
+    rbd_mirror_image_info_t *mirror_image_info)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" void rbd_mirror_image_global_status_cleanup(
+    rbd_mirror_image_global_status_t *mirror_image_global_status)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" int rbd_mirror_peer_site_add(
+    rados_ioctx_t io_ctx, char *uuid, size_t uuid_max_length,
+    rbd_mirror_peer_direction_t direction, const char *site_name,
+    const char *client_name)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_mirror_peer_site_get_attributes(
+    rados_ioctx_t p, const char *uuid, char *keys, size_t *max_key_len,
+    char *values, size_t *max_value_len, size_t *key_value_count)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_mirror_peer_site_remove(
+    rados_ioctx_t io_ctx, const char *uuid)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_mirror_peer_site_set_attributes(
+    rados_ioctx_t p, const char *uuid, const char *keys, const char *values,
+    size_t key_value_count)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_mirror_peer_site_set_name(
+    rados_ioctx_t io_ctx, const char *uuid, const char *site_name)
+{
+    return *(int*)0;
+}
+
+extern "C" int rbd_mirror_peer_site_set_client_name(
+    rados_ioctx_t io_ctx, const char *uuid, const char *client_name)
+{
+    return *(int*)0;
+}
+
+extern "C" void rbd_pool_stats_create(rbd_pool_stats_t *stats)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" void rbd_pool_stats_destroy(rbd_pool_stats_t stats)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" int rbd_pool_stats_option_add_uint64(rbd_pool_stats_t stats,
+						int stat_option,
+						uint64_t* stat_val)
+{
+    return *(int*)0;
+}
+
+extern "C" void rbd_trash_get_cleanup(rbd_trash_image_info_t *info)
+{
+    ASSERT_FAIL();
+}
+
+extern "C" void rbd_version(int *major, int *minor, int *extra)
+{
+    *major = 0;
+    *minor = 0;
+    *extra = 1;
+}

@@ -20,7 +20,8 @@ set(lsvd_libs
      uuid
      z)
 
-add_library(liblsvd SHARED ${lsvd_srcs})
+add_library(liblsvd SHARED
+  ${lsvd_srcs})
 target_link_libraries(liblsvd PRIVATE ${lsvd_libs}) 
 
 if(ENABLE_SHARED)
