@@ -78,7 +78,7 @@ int rbd_image::image_open(rados_ioctx_t io, const char *name) {
     /* read superblock and initialize translation layer
      */
     xlate = make_translate(objstore, &cfg, &map, &map_lock);
-    size = xlate->init(name, cfg.xlate_threads, true);
+    size = xlate->init(name, true);
 
     /* figure out cache file name, create it if necessary
      */
@@ -727,6 +727,29 @@ extern "C" void rbd_uuid(rbd_image_t image, uuid_t *uuid) {
     memcpy(uuid, img->xlate->uuid, sizeof(uuid_t));
 }
 
+extern "C" int rbd_aio_writesame(rbd_image_t image, uint64_t off,
+				 size_t len,
+				 const char *buf, size_t data_len,
+				 rbd_completion_t c, int op_flags)
+{
+    int n = div_round_up(len, data_len);
+    iovec iov[n];
+    int niovs = 0;
+    while (len > 0) {
+	size_t bytes = std::min(len, data_len);
+	iov[niovs++] = (iovec){(void*)buf, bytes};
+    }
+    return rbd_aio_writev(image, iov, niovs, off, c);
+}
+
+char zeropage[4096];
+extern "C" int rbd_aio_write_zeroes(rbd_image_t image, uint64_t off,
+                                      size_t len, rbd_completion_t c,
+                                      int zero_flags, int op_flags)
+{
+    return rbd_aio_writesame(image, off, len, zeropage, 4096, c, op_flags);
+}
+
 /* any following functions are stubs only
  */
 extern "C" int rbd_invalidate_cache(rbd_image_t image)
@@ -762,29 +785,3 @@ extern "C" int rbd_snap_rollback(rbd_image_t image, const char *snapname)
     return -1;
 }
 
-#ifdef FAKE_RADOS		// librados replacement
-extern "C" int rados_conf_read_file(rados_t r, const char* s)
-{
-       return 0;
-}
-extern "C" int rados_connect(rados_t cluster) {
-       return 0;
-}
-extern "C" int rados_ioctx_create(rados_t cluster, const char *pool_name,
-                                      rados_ioctx_t *ioctx) {
-       return 0;
-}
-
-typedef void *rados_t;
-typedef void *rados_ioctx_t;
-extern "C" int rados_conf_set(rados_t cluster, const char *option,
-			      const char *value) { return 0; }
-
-extern "C" int rados_create(rados_t *cluster,
-			    const char * const id) { return 0; }
-extern "C" void rados_ioctx_destroy(rados_ioctx_t io) {}
-extern "C" void rados_ioctx_set_namespace(rados_ioctx_t io,
-                               const char *nspace) {}
-extern "C" void rados_shutdown(rados_t cluster) {}
-
-#endif

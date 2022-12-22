@@ -98,6 +98,16 @@ extern "C" CEPH_RBD_API int rbd_read(rbd_image_t image, uint64_t off, size_t len
 extern "C" CEPH_RBD_API int rbd_write(rbd_image_t image, uint64_t off, size_t len,
                                       const char *buf);
 
+extern "C" CEPH_RBD_API int rbd_aio_writesame(rbd_image_t image, uint64_t off,
+                                              size_t len,
+                                              const char *buf, size_t data_len,
+                                              rbd_completion_t c, int op_flags);
+
+extern "C" CEPH_RBD_API int rbd_aio_write_zeroes(rbd_image_t image,
+                                                 uint64_t off,
+                                                 size_t len, rbd_completion_t c,
+                                                 int zero_flags, int op_flags);
+
 extern "C" CEPH_RBD_API int rbd_aio_wait_for_complete(rbd_completion_t c);
 
 extern "C" CEPH_RBD_API int rbd_stat(rbd_image_t image, rbd_image_info_t *info,
