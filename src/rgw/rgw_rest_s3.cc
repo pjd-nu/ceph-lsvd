@@ -1765,7 +1765,11 @@ void RGWListBucket_ObjStore_S3::send_common_response()
   s->formatter->dump_string("Prefix", prefix);
   s->formatter->dump_int("MaxKeys", max);
   if (!delimiter.empty()) {
-    s->formatter->dump_string("Delimiter", delimiter);
+    if (encode_key) {
+      s->formatter->dump_string("Delimiter", url_encode(delimiter, false));
+    } else {
+      s->formatter->dump_string("Delimiter", delimiter);
+    }
   }
   s->formatter->dump_string("IsTruncated", (max && is_truncated ? "true"
               : "false"));
@@ -2872,7 +2876,7 @@ int RGWPostObj_ObjStore_S3::get_params(optional_yield y)
     return -EINVAL;
   }
 
-  s->object = driver->get_object(rgw_obj_key(object_str));
+  s->object = s->bucket->get_object(rgw_obj_key(object_str));
 
   rebuild_key(s->object.get());
 
