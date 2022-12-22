@@ -15,6 +15,10 @@ Note that although individual disk performance is important, the main goal is to
 
 This builds `liblsvd.so`, which provides most of the basic RBD API; you can use `LD_PRELOAD` to use this in place of RBD with `fio`, KVM/QEMU, and a few other tools. It also includes some tests and tools described below.
 
+## stability
+
+As of Dec 22 it still suffers from occasional lost completions - I did a download and full build of Ceph on a 16-VCPU VM, and I had to restart QEMU half a dozen times when dropped I/Os caused hung processes.
+
 ## Configuration
 
 LSVD is not yet merged into the Ceph configuration framework, and uses its own system. 
